@@ -3,10 +3,12 @@ import pandas as pd
 from PIL import Image
 import io
 import os
+from datetime import datetime, date
 from disease_database import DiseaseDatabase
 from treatment_database import TreatmentDatabase
 from image_processor import ImageProcessor
 from ml_model import CowDiseaseModel
+from database import get_database_manager
 
 # Initialize databases and models
 @st.cache_resource
@@ -15,7 +17,8 @@ def load_resources():
     treatment_db = TreatmentDatabase()
     image_processor = ImageProcessor()
     ml_model = CowDiseaseModel()
-    return disease_db, treatment_db, image_processor, ml_model
+    db_manager = get_database_manager()
+    return disease_db, treatment_db, image_processor, ml_model, db_manager
 
 # Page configuration
 st.set_page_config(
@@ -27,7 +30,7 @@ st.set_page_config(
 
 # Load resources
 try:
-    disease_db, treatment_db, image_processor, ml_model = load_resources()
+    disease_db, treatment_db, image_processor, ml_model, db_manager = load_resources()
 except Exception as e:
     st.error(f"Failed to initialize application resources: {str(e)}")
     st.stop()
@@ -46,7 +49,8 @@ page = st.sidebar.selectbox("Choose a page", [
     "Emergency Protocol",
     "Health Analytics",
     "Find Veterinarian",
-    "Treatment Calculator"
+    "Treatment Calculator",
+    "Health Records"
 ])
 
 if page == "Diagnosis":
@@ -441,8 +445,21 @@ elif page == "Health Analytics":
         submitted = st.form_submit_button("Add Health Record")
         
         if submitted and cow_id and diagnosed_disease:
-            st.success(f"Health record added for Cow {cow_id}")
-            st.info("In a production system, this would be saved to your farm database.")
+            record_data = {
+                'cow_id': cow_id,
+                'diagnosis_date': diagnosis_date,
+                'disease_name': diagnosed_disease,
+                'severity': severity.lower(),
+                'treatment_applied': f"Manual entry - {severity} {diagnosed_disease}",
+                'total_cost': treatment_cost,
+                'veterinarian': veterinarian,
+                'notes': notes
+            }
+            
+            if db_manager.add_health_record(record_data):
+                st.success(f"Health record added for Cow {cow_id}")
+            else:
+                st.error("Failed to save health record to database")
     
     # Farm management system integration notice
     st.subheader("🔗 Integration Options")
