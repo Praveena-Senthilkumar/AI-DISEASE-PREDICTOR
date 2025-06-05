@@ -553,34 +553,34 @@ elif page == "Find Veterinarian":
 elif page == "Treatment Calculator":
     st.header("💊 Treatment Cost Calculator")
     
-    st.markdown("Estimate treatment costs for common cow diseases")
+    st.markdown("Estimate treatment costs for common cow diseases (in Indian Rupees)")
     
-    # Disease selection
+    # Disease selection - costs converted to INR (approximate 1 USD = 83 INR)
     disease_costs = {
         "Mastitis": {
-            "mild": {"medication": 25, "labor": 15, "supplies": 10},
-            "moderate": {"medication": 50, "labor": 30, "supplies": 20},
-            "severe": {"medication": 100, "labor": 60, "supplies": 40}
+            "mild": {"medication": 2075, "labor": 1245, "supplies": 830},
+            "moderate": {"medication": 4150, "labor": 2490, "supplies": 1660},
+            "severe": {"medication": 8300, "labor": 4980, "supplies": 3320}
         },
         "Lameness": {
-            "mild": {"medication": 15, "labor": 25, "supplies": 15},
-            "moderate": {"medication": 35, "labor": 50, "supplies": 25},
-            "severe": {"medication": 75, "labor": 100, "supplies": 50}
+            "mild": {"medication": 1245, "labor": 2075, "supplies": 1245},
+            "moderate": {"medication": 2905, "labor": 4150, "supplies": 2075},
+            "severe": {"medication": 6225, "labor": 8300, "supplies": 4150}
         },
         "Bovine Respiratory Disease": {
-            "mild": {"medication": 40, "labor": 20, "supplies": 15},
-            "moderate": {"medication": 80, "labor": 40, "supplies": 30},
-            "severe": {"medication": 150, "labor": 80, "supplies": 60}
+            "mild": {"medication": 3320, "labor": 1660, "supplies": 1245},
+            "moderate": {"medication": 6640, "labor": 3320, "supplies": 2490},
+            "severe": {"medication": 12450, "labor": 6640, "supplies": 4980}
         },
         "Ketosis": {
-            "mild": {"medication": 30, "labor": 15, "supplies": 10},
-            "moderate": {"medication": 60, "labor": 30, "supplies": 20},
-            "severe": {"medication": 120, "labor": 60, "supplies": 40}
+            "mild": {"medication": 2490, "labor": 1245, "supplies": 830},
+            "moderate": {"medication": 4980, "labor": 2490, "supplies": 1660},
+            "severe": {"medication": 9960, "labor": 4980, "supplies": 3320}
         },
         "Pink Eye": {
-            "mild": {"medication": 20, "labor": 10, "supplies": 5},
-            "moderate": {"medication": 35, "labor": 20, "supplies": 10},
-            "severe": {"medication": 60, "labor": 40, "supplies": 20}
+            "mild": {"medication": 1660, "labor": 830, "supplies": 415},
+            "moderate": {"medication": 2905, "labor": 1660, "supplies": 830},
+            "severe": {"medication": 4980, "labor": 3320, "supplies": 1660}
         }
     }
     
@@ -604,9 +604,9 @@ elif page == "Treatment Calculator":
         labor_cost = base_costs["labor"] * num_animals
         supplies_cost = base_costs["supplies"] * num_animals
         
-        vet_cost = 75 if vet_visit else 0
-        follow_up_cost = follow_up_visits * 50
-        prevention_cost = 200 if prevention_program else 0
+        vet_cost = 6225 if vet_visit else 0  # ₹6,225 (75 USD * 83)
+        follow_up_cost = follow_up_visits * 4150  # ₹4,150 per visit (50 USD * 83)
+        prevention_cost = 16600 if prevention_program else 0  # ₹16,600 (200 USD * 83)
         
         total_cost = medication_cost + labor_cost + supplies_cost + vet_cost + follow_up_cost + prevention_cost
         
@@ -623,25 +623,25 @@ elif page == "Treatment Calculator":
         
         for item, cost in cost_breakdown.items():
             if cost > 0:
-                st.markdown(f"**{item}:** ${cost:,.2f}")
+                st.markdown(f"**{item}:** ₹{cost:,.2f}")
         
         st.markdown("---")
-        st.markdown(f"### **Total Estimated Cost: ${total_cost:,.2f}**")
+        st.markdown(f"### **Total Estimated Cost: ₹{total_cost:,.2f}**")
         
         # Cost per animal
         cost_per_animal = total_cost / num_animals
-        st.markdown(f"**Cost per animal:** ${cost_per_animal:,.2f}")
+        st.markdown(f"**Cost per animal:** ₹{cost_per_animal:,.2f}")
         
         # Economic impact analysis
         st.subheader("📊 Economic Impact Analysis")
         
-        # Estimated losses without treatment
+        # Estimated losses without treatment (converted to INR)
         loss_without_treatment = {
-            "Mastitis": {"mild": 150, "moderate": 400, "severe": 800},
-            "Lameness": {"mild": 200, "moderate": 500, "severe": 1000},
-            "Bovine Respiratory Disease": {"mild": 300, "moderate": 600, "severe": 1200},
-            "Ketosis": {"mild": 250, "moderate": 500, "severe": 900},
-            "Pink Eye": {"mild": 100, "moderate": 250, "severe": 500}
+            "Mastitis": {"mild": 12450, "moderate": 33200, "severe": 66400},
+            "Lameness": {"mild": 16600, "moderate": 41500, "severe": 83000},
+            "Bovine Respiratory Disease": {"mild": 24900, "moderate": 49800, "severe": 99600},
+            "Ketosis": {"mild": 20750, "moderate": 41500, "severe": 74700},
+            "Pink Eye": {"mild": 8300, "moderate": 20750, "severe": 41500}
         }
         
         potential_loss = loss_without_treatment[selected_disease][severity_level] * num_animals
@@ -650,13 +650,13 @@ elif page == "Treatment Calculator":
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.metric("Treatment Cost", f"${total_cost:,.2f}")
+            st.metric("Treatment Cost", f"₹{total_cost:,.2f}")
         
         with col2:
-            st.metric("Potential Loss Without Treatment", f"${potential_loss:,.2f}")
+            st.metric("Potential Loss Without Treatment", f"₹{potential_loss:,.2f}")
         
         with col3:
-            st.metric("Estimated Savings", f"${savings:,.2f}", delta=f"${savings:,.2f}")
+            st.metric("Estimated Savings", f"₹{savings:,.2f}", delta=f"₹{savings:,.2f}")
         
         if savings > 0:
             st.success(f"Treatment is economically beneficial. ROI: {(savings/total_cost)*100:.1f}%")
