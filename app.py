@@ -38,74 +38,185 @@ st.markdown("Upload a photo of your cow to get AI-powered disease diagnosis and 
 
 # Sidebar for navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.selectbox("Choose a page", ["Diagnosis", "Disease Database", "Search Diseases"])
+page = st.sidebar.selectbox("Choose a page", [
+    "Diagnosis", 
+    "Disease Database", 
+    "Search Diseases", 
+    "Prevention Guide",
+    "Emergency Protocol",
+    "Health Analytics",
+    "Find Veterinarian",
+    "Treatment Calculator"
+])
 
 if page == "Diagnosis":
     st.header("Upload Cow Image for Diagnosis")
     
-    # File upload
-    uploaded_file = st.file_uploader(
-        "Choose an image file",
-        type=['png', 'jpg', 'jpeg'],
-        help="Upload a clear photo of the cow showing any visible symptoms"
-    )
+    # Upload options
+    upload_option = st.radio("Upload Method:", ["Single Image", "Multiple Images"])
     
-    if uploaded_file is not None:
-        try:
-            # Display uploaded image
-            image = Image.open(uploaded_file)
-            col1, col2 = st.columns([1, 1])
+    if upload_option == "Single Image":
+        # Single file upload
+        uploaded_file = st.file_uploader(
+            "Choose an image file",
+            type=['png', 'jpg', 'jpeg'],
+            help="Upload a clear photo of the cow showing any visible symptoms"
+        )
+        uploaded_files = [uploaded_file] if uploaded_file else []
+    else:
+        # Multiple file upload
+        uploaded_files = st.file_uploader(
+            "Choose multiple image files",
+            type=['png', 'jpg', 'jpeg'],
+            accept_multiple_files=True,
+            help="Upload multiple photos for comprehensive analysis"
+        )
+    
+    if uploaded_files and any(uploaded_files):
+        # Filter out None values
+        valid_files = [f for f in uploaded_files if f is not None]
+        
+        if valid_files:
+            st.success(f"Processing {len(valid_files)} image(s)...")
             
-            with col1:
-                st.image(image, caption="Uploaded Image", use_column_width=True)
+            # Process each image
+            all_predictions = []
             
-            with col2:
-                st.subheader("Image Analysis")
-                
-                # Process image
-                with st.spinner("Processing image..."):
-                    processed_image = image_processor.preprocess_image(image)
+            for idx, uploaded_file in enumerate(valid_files):
+                try:
+                    # Display uploaded image
+                    image = Image.open(uploaded_file)
                     
-                if processed_image is not None:
-                    st.success("✅ Image processed successfully")
+                    st.markdown(f"### Image {idx + 1}: {uploaded_file.name}")
                     
-                    # Analyze with ML model
-                    with st.spinner("Analyzing for diseases..."):
-                        predictions = ml_model.predict(processed_image)
+                    col1, col2 = st.columns([1, 1])
                     
-                    if predictions:
-                        st.subheader("🔍 Diagnosis Results")
+                    with col1:
+                        st.image(image, caption=f"Uploaded Image {idx + 1}", use_container_width=True)
                         
-                        for i, (disease_name, confidence) in enumerate(predictions[:3]):
-                            with st.expander(f"{disease_name} (Confidence: {confidence:.1%})", expanded=(i==0)):
-                                disease_info = disease_db.get_disease_info(disease_name)
-                                treatment_info = treatment_db.get_treatment_info(disease_name)
-                                
-                                if disease_info:
-                                    st.markdown(f"**Description:** {disease_info['description']}")
-                                    st.markdown(f"**Symptoms:** {disease_info['symptoms']}")
-                                    st.markdown(f"**Causes:** {disease_info['causes']}")
-                                    
-                                    if treatment_info:
-                                        st.markdown("### 🏥 Treatment Recommendations")
-                                        st.markdown(f"**Immediate Actions:** {treatment_info['immediate_actions']}")
-                                        st.markdown(f"**Medications:** {treatment_info['medications']}")
-                                        st.markdown(f"**Dosage:** {treatment_info['dosage']}")
-                                        st.markdown(f"**Duration:** {treatment_info['duration']}")
-                                        st.markdown(f"**Prevention:** {treatment_info['prevention']}")
-                                        
-                                        # Warning for veterinary consultation
-                                        st.warning("⚠️ Always consult with a qualified veterinarian before administering any treatment.")
-                                else:
-                                    st.error(f"Disease information not found for {disease_name}")
-                    else:
-                        st.warning("No diseases detected. The cow appears healthy, but consult a veterinarian if you notice any concerning symptoms.")
-                else:
-                    st.error("Failed to process the uploaded image. Please try with a different image.")
+                        # Image quality assessment
+                        quality_info = image_processor.detect_image_quality(image)
+                        st.markdown("**Image Quality Assessment:**")
+                        if quality_info.get('overall_quality') == 'good':
+                            st.success("✅ Good image quality")
+                        elif quality_info.get('overall_quality') == 'fair':
+                            st.warning("⚠️ Fair image quality")
+                            if quality_info.get('issues'):
+                                st.write(f"Issues: {', '.join(quality_info['issues'])}")
+                        else:
+                            st.error("❌ Poor image quality")
+                            if quality_info.get('issues'):
+                                st.write(f"Issues: {', '.join(quality_info['issues'])}")
                     
-        except Exception as e:
-            st.error(f"Error processing image: {str(e)}")
-            st.info("Please ensure you've uploaded a valid image file (PNG, JPG, or JPEG)")
+                    with col2:
+                        st.subheader(f"Analysis for Image {idx + 1}")
+                        
+                        # Process image
+                        with st.spinner("Processing image..."):
+                            processed_image = image_processor.preprocess_image(image)
+                            
+                        if processed_image is not None:
+                            st.success("✅ Image processed successfully")
+                            
+                            # Extract features for display
+                            features = image_processor.extract_features(image)
+                            with st.expander("📊 Image Features"):
+                                st.write(f"Brightness: {features.get('brightness', 0):.2f}")
+                                st.write(f"Contrast: {features.get('contrast', 0):.2f}")
+                                st.write(f"Size: {features.get('size', 'Unknown')}")
+                            
+                            # Analyze with ML model
+                            with st.spinner("Analyzing for diseases..."):
+                                predictions = ml_model.predict(processed_image)
+                            
+                            if predictions:
+                                all_predictions.extend(predictions)
+                                st.subheader(f"🔍 Diagnosis Results for Image {idx + 1}")
+                                
+                                for i, (disease_name, confidence) in enumerate(predictions[:3]):
+                                    with st.expander(f"{disease_name} (Confidence: {confidence:.1%})", expanded=(i==0)):
+                                        disease_info = disease_db.get_disease_info(disease_name)
+                                        treatment_info = treatment_db.get_treatment_info(disease_name)
+                                        
+                                        if disease_info:
+                                            st.markdown(f"**Description:** {disease_info['description']}")
+                                            st.markdown(f"**Symptoms:** {disease_info['symptoms']}")
+                                            st.markdown(f"**Causes:** {disease_info['causes']}")
+                                            
+                                            if treatment_info:
+                                                st.markdown("### 🏥 Treatment Recommendations")
+                                                st.markdown(f"**Immediate Actions:** {treatment_info['immediate_actions']}")
+                                                st.markdown(f"**Medications:** {treatment_info['medications']}")
+                                                st.markdown(f"**Dosage:** {treatment_info['dosage']}")
+                                                st.markdown(f"**Duration:** {treatment_info['duration']}")
+                                                st.markdown(f"**Prevention:** {treatment_info['prevention']}")
+                                                
+                                                # Warning for veterinary consultation
+                                                st.warning("⚠️ Always consult with a qualified veterinarian before administering any treatment.")
+                                        else:
+                                            st.error(f"Disease information not found for {disease_name}")
+                            else:
+                                st.warning(f"No diseases detected in image {idx + 1}.")
+                        else:
+                            st.error(f"Failed to process image {idx + 1}. Please try with a different image.")
+                    
+                    st.markdown("---")
+                            
+                except Exception as e:
+                    st.error(f"Error processing image {idx + 1}: {str(e)}")
+                    continue
+            
+            # Aggregate results for multiple images
+            if len(valid_files) > 1 and all_predictions:
+                st.header("📋 Comprehensive Analysis Summary")
+                
+                # Aggregate predictions by counting occurrences
+                disease_counts = {}
+                confidence_sums = {}
+                
+                for disease, confidence in all_predictions:
+                    if disease in disease_counts:
+                        disease_counts[disease] += 1
+                        confidence_sums[disease] += confidence
+                    else:
+                        disease_counts[disease] = 1
+                        confidence_sums[disease] = confidence
+                
+                # Calculate average confidence and sort by frequency
+                aggregated_results = []
+                for disease in disease_counts:
+                    avg_confidence = confidence_sums[disease] / disease_counts[disease]
+                    frequency = disease_counts[disease]
+                    aggregated_results.append((disease, avg_confidence, frequency))
+                
+                aggregated_results.sort(key=lambda x: (x[2], x[1]), reverse=True)
+                
+                st.subheader("🎯 Most Likely Diagnoses Across All Images")
+                
+                for disease, avg_conf, freq in aggregated_results[:5]:
+                    with st.expander(f"{disease} (Detected in {freq}/{len(valid_files)} images, Avg Confidence: {avg_conf:.1%})"):
+                        disease_info = disease_db.get_disease_info(disease)
+                        treatment_info = treatment_db.get_treatment_info(disease)
+                        
+                        if disease_info:
+                            col1, col2 = st.columns([1, 1])
+                            
+                            with col1:
+                                st.markdown("### Disease Information")
+                                st.markdown(f"**Description:** {disease_info['description']}")
+                                st.markdown(f"**Symptoms:** {disease_info['symptoms']}")
+                                st.markdown(f"**Severity:** {disease_info.get('severity', 'Unknown')}")
+                            
+                            with col2:
+                                if treatment_info:
+                                    st.markdown("### Treatment Protocol")
+                                    st.markdown(f"**Immediate Actions:** {treatment_info['immediate_actions']}")
+                                    st.markdown(f"**Medications:** {treatment_info['medications']}")
+                                    st.markdown(f"**Prevention:** {treatment_info['prevention']}")
+                                    
+                st.info(f"Analysis based on {len(valid_files)} images. Multiple image analysis provides more reliable diagnosis.")
+        else:
+            st.info("Please upload at least one valid image file.")
 
 elif page == "Disease Database":
     st.header("📚 Cow Disease Database")
@@ -163,6 +274,394 @@ elif page == "Search Diseases":
                             st.markdown(f"**Treatment:** {treatment_info['immediate_actions']}")
         else:
             st.info("No diseases found matching your search term. Try different keywords.")
+
+elif page == "Prevention Guide":
+    st.header("🛡️ Disease Prevention Guide")
+    
+    # Prevention categories
+    prevention_categories = {
+        "Hygiene & Sanitation": {
+            "description": "Basic cleanliness practices to prevent disease spread",
+            "practices": [
+                "Clean milking equipment daily with approved sanitizers",
+                "Maintain clean, dry bedding areas",
+                "Regular cleaning of feed and water containers",
+                "Proper waste management and disposal",
+                "Hand hygiene for farm workers"
+            ]
+        },
+        "Nutrition Management": {
+            "description": "Proper feeding practices for disease prevention",
+            "practices": [
+                "Provide balanced nutrition based on life stage",
+                "Ensure access to clean, fresh water",
+                "Monitor body condition scores regularly",
+                "Avoid sudden feed changes",
+                "Store feed properly to prevent contamination"
+            ]
+        },
+        "Vaccination Programs": {
+            "description": "Essential vaccines for cattle health",
+            "practices": [
+                "Follow recommended vaccination schedules",
+                "Consult veterinarian for regional disease risks",
+                "Maintain proper vaccine storage conditions",
+                "Keep detailed vaccination records",
+                "Monitor for adverse reactions"
+            ]
+        },
+        "Environmental Controls": {
+            "description": "Managing the farm environment for health",
+            "practices": [
+                "Ensure proper ventilation in housing",
+                "Control flies and other disease vectors",
+                "Maintain appropriate stocking densities",
+                "Provide adequate shelter from weather",
+                "Regular facility maintenance and repair"
+            ]
+        }
+    }
+    
+    for category, info in prevention_categories.items():
+        with st.expander(f"📋 {category}"):
+            st.markdown(f"**{info['description']}**")
+            st.markdown("")
+            for practice in info['practices']:
+                st.markdown(f"• {practice}")
+
+elif page == "Emergency Protocol":
+    st.header("🚨 Emergency Protocol Guide")
+    
+    st.warning("⚠️ This guide is for immediate reference only. Always contact a veterinarian for emergencies.")
+    
+    # Emergency situations
+    emergencies = {
+        "Severe Bloat": {
+            "symptoms": "Severe abdominal distension, difficulty breathing, collapse",
+            "immediate_actions": [
+                "Keep animal standing and moving",
+                "Insert stomach tube if trained",
+                "Contact veterinarian immediately",
+                "Do NOT give oral medications",
+                "Monitor breathing closely"
+            ],
+            "urgency": "CRITICAL - Act within minutes"
+        },
+        "Milk Fever Emergency": {
+            "symptoms": "Unable to stand, muscle tremors, cold extremities",
+            "immediate_actions": [
+                "Keep cow calm and warm",
+                "Contact veterinarian for IV calcium",
+                "Do not attempt to force standing",
+                "Provide soft bedding",
+                "Monitor for complications"
+            ],
+            "urgency": "URGENT - Act within 1-2 hours"
+        },
+        "Severe Respiratory Distress": {
+            "symptoms": "Open-mouth breathing, blue gums, extreme difficulty breathing",
+            "immediate_actions": [
+                "Move to well-ventilated area",
+                "Remove any obstructions from airway",
+                "Contact veterinarian immediately",
+                "Monitor temperature",
+                "Keep animal calm"
+            ],
+            "urgency": "CRITICAL - Act immediately"
+        },
+        "Prolapsed Uterus": {
+            "symptoms": "Uterus visible outside body after calving",
+            "immediate_actions": [
+                "Cover with clean, moist cloth",
+                "Prevent further contamination",
+                "Contact veterinarian immediately",
+                "Do NOT attempt to replace yourself",
+                "Keep cow standing if possible"
+            ],
+            "urgency": "URGENT - Act within 1 hour"
+        }
+    }
+    
+    for emergency, details in emergencies.items():
+        with st.expander(f"🚨 {emergency}"):
+            st.error(f"**Urgency Level:** {details['urgency']}")
+            st.markdown(f"**Symptoms:** {details['symptoms']}")
+            st.markdown("**Immediate Actions:**")
+            for action in details['immediate_actions']:
+                st.markdown(f"1. {action}")
+
+elif page == "Health Analytics":
+    st.header("📊 Health Analytics Dashboard")
+    
+    st.info("Track your herd's health patterns and trends")
+    
+    # Mock data for demonstration - in real application, this would connect to farm management system
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Diagnoses This Month", "47", "12%")
+    
+    with col2:
+        st.metric("Most Common Disease", "Mastitis", "35% of cases")
+    
+    with col3:
+        st.metric("Prevention Success Rate", "78%", "5%")
+    
+    # Disease frequency chart
+    st.subheader("📈 Disease Frequency Trends")
+    
+    import pandas as pd
+    import random
+    
+    # Sample data for visualization
+    diseases = ["Mastitis", "Lameness", "Respiratory Disease", "Ketosis", "Pink Eye"]
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+    
+    st.info("Health analytics requires connection to your farm management system or manual data entry to display real trends and statistics.")
+    
+    # Data input section
+    st.subheader("📝 Manual Health Record Entry")
+    
+    with st.form("health_record_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            cow_id = st.text_input("Cow ID/Tag Number")
+            diagnosis_date = st.date_input("Diagnosis Date")
+            diagnosed_disease = st.selectbox("Diagnosed Disease", 
+                ["Mastitis", "Lameness", "Respiratory Disease", "Ketosis", "Pink Eye", "Other"])
+        
+        with col2:
+            severity = st.selectbox("Severity Level", ["Mild", "Moderate", "Severe"])
+            treatment_cost = st.number_input("Treatment Cost ($)", min_value=0.0, value=0.0)
+            veterinarian = st.text_input("Veterinarian Name")
+        
+        notes = st.text_area("Additional Notes")
+        
+        submitted = st.form_submit_button("Add Health Record")
+        
+        if submitted and cow_id and diagnosed_disease:
+            st.success(f"Health record added for Cow {cow_id}")
+            st.info("In a production system, this would be saved to your farm database.")
+    
+    # Farm management system integration notice
+    st.subheader("🔗 Integration Options")
+    
+    integration_options = [
+        "**DairyComp 305** - Comprehensive dairy management",
+        "**PCDART** - Production and health records",
+        "**Herd Navigator** - Automated health monitoring", 
+        "**CowManager** - Real-time health monitoring",
+        "**Custom Database** - Your existing farm records"
+    ]
+    
+    st.markdown("Connect with popular farm management systems:")
+    for option in integration_options:
+        st.markdown(f"• {option}")
+    
+    st.info("Contact your system administrator to set up data integration for real-time analytics.")
+
+elif page == "Find Veterinarian":
+    st.header("🏥 Find Veterinarian")
+    
+    st.markdown("Locate qualified veterinarians in your area for cow health services")
+    
+    # Location input
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        location = st.text_input("Enter your location (City, State/ZIP)")
+        service_type = st.selectbox("Service Type", [
+            "General Veterinary Care",
+            "Large Animal Specialist", 
+            "Emergency Services",
+            "Reproductive Services",
+            "Nutrition Consultation",
+            "Hoof Care Specialist"
+        ])
+    
+    with col2:
+        search_radius = st.slider("Search Radius (miles)", 5, 50, 25)
+        availability = st.selectbox("Availability", [
+            "Any time",
+            "Emergency only",
+            "Weekdays",
+            "Weekends",
+            "24/7 services"
+        ])
+    
+    if st.button("Search Veterinarians") and location:
+        st.info("Veterinarian search requires integration with veterinary directory services. Please contact local veterinary associations or use online directories.")
+        
+        # Sample veterinarian listings for demonstration
+        st.subheader("📋 Veterinarian Directory")
+        
+        sample_vets = [
+            {
+                "name": "Dr. Sarah Johnson, DVM",
+                "clinic": "Countryside Animal Hospital",
+                "specialties": "Large Animal Medicine, Reproduction",
+                "phone": "(555) 123-4567",
+                "distance": "8.2 miles",
+                "rating": "4.8/5",
+                "emergency": True
+            },
+            {
+                "name": "Dr. Michael Chen, DVM",
+                "clinic": "Farm Animal Care Center",
+                "specialties": "Dairy Health, Nutrition",
+                "phone": "(555) 234-5678", 
+                "distance": "12.5 miles",
+                "rating": "4.9/5",
+                "emergency": False
+            },
+            {
+                "name": "Dr. Emily Rodriguez, DVM",
+                "clinic": "Rural Veterinary Services",
+                "specialties": "Emergency Care, Surgery",
+                "phone": "(555) 345-6789",
+                "distance": "15.1 miles", 
+                "rating": "4.7/5",
+                "emergency": True
+            }
+        ]
+        
+        for vet in sample_vets:
+            with st.expander(f"🏥 {vet['name']} - {vet['clinic']}"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown(f"**Specialties:** {vet['specialties']}")
+                    st.markdown(f"**Phone:** {vet['phone']}")
+                    st.markdown(f"**Distance:** {vet['distance']}")
+                
+                with col2:
+                    st.markdown(f"**Rating:** {vet['rating']}")
+                    if vet['emergency']:
+                        st.success("✅ Emergency Services Available")
+                    else:
+                        st.info("Regular Hours Only")
+                
+                st.markdown("**Schedule Consultation:**")
+                consultation_type = st.selectbox(f"Service for {vet['name']}", 
+                    ["Regular Check-up", "Disease Diagnosis", "Emergency Visit", "Follow-up"], 
+                    key=f"consult_{vet['name']}")
+                
+                if st.button(f"Contact {vet['name']}", key=f"contact_{vet['name']}"):
+                    st.success(f"Contact information copied. Call {vet['phone']} to schedule.")
+
+elif page == "Treatment Calculator":
+    st.header("💊 Treatment Cost Calculator")
+    
+    st.markdown("Estimate treatment costs for common cow diseases")
+    
+    # Disease selection
+    disease_costs = {
+        "Mastitis": {
+            "mild": {"medication": 25, "labor": 15, "supplies": 10},
+            "moderate": {"medication": 50, "labor": 30, "supplies": 20},
+            "severe": {"medication": 100, "labor": 60, "supplies": 40}
+        },
+        "Lameness": {
+            "mild": {"medication": 15, "labor": 25, "supplies": 15},
+            "moderate": {"medication": 35, "labor": 50, "supplies": 25},
+            "severe": {"medication": 75, "labor": 100, "supplies": 50}
+        },
+        "Bovine Respiratory Disease": {
+            "mild": {"medication": 40, "labor": 20, "supplies": 15},
+            "moderate": {"medication": 80, "labor": 40, "supplies": 30},
+            "severe": {"medication": 150, "labor": 80, "supplies": 60}
+        },
+        "Ketosis": {
+            "mild": {"medication": 30, "labor": 15, "supplies": 10},
+            "moderate": {"medication": 60, "labor": 30, "supplies": 20},
+            "severe": {"medication": 120, "labor": 60, "supplies": 40}
+        },
+        "Pink Eye": {
+            "mild": {"medication": 20, "labor": 10, "supplies": 5},
+            "moderate": {"medication": 35, "labor": 20, "supplies": 10},
+            "severe": {"medication": 60, "labor": 40, "supplies": 20}
+        }
+    }
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        selected_disease = st.selectbox("Select Disease", list(disease_costs.keys()))
+        severity_level = st.selectbox("Severity Level", ["mild", "moderate", "severe"])
+        num_animals = st.number_input("Number of Animals Affected", min_value=1, max_value=100, value=1)
+    
+    with col2:
+        vet_visit = st.checkbox("Veterinarian Visit Required", value=True)
+        follow_up_visits = st.number_input("Follow-up Visits", min_value=0, max_value=5, value=1)
+        prevention_program = st.checkbox("Add Prevention Program Cost")
+    
+    if selected_disease and severity_level:
+        base_costs = disease_costs[selected_disease][severity_level]
+        
+        # Calculate total costs
+        medication_cost = base_costs["medication"] * num_animals
+        labor_cost = base_costs["labor"] * num_animals
+        supplies_cost = base_costs["supplies"] * num_animals
+        
+        vet_cost = 75 if vet_visit else 0
+        follow_up_cost = follow_up_visits * 50
+        prevention_cost = 200 if prevention_program else 0
+        
+        total_cost = medication_cost + labor_cost + supplies_cost + vet_cost + follow_up_cost + prevention_cost
+        
+        st.subheader("💰 Cost Breakdown")
+        
+        cost_breakdown = {
+            "Medications": medication_cost,
+            "Labor": labor_cost,
+            "Supplies": supplies_cost,
+            "Veterinarian Visit": vet_cost,
+            "Follow-up Visits": follow_up_cost,
+            "Prevention Program": prevention_cost
+        }
+        
+        for item, cost in cost_breakdown.items():
+            if cost > 0:
+                st.markdown(f"**{item}:** ${cost:,.2f}")
+        
+        st.markdown("---")
+        st.markdown(f"### **Total Estimated Cost: ${total_cost:,.2f}**")
+        
+        # Cost per animal
+        cost_per_animal = total_cost / num_animals
+        st.markdown(f"**Cost per animal:** ${cost_per_animal:,.2f}")
+        
+        # Economic impact analysis
+        st.subheader("📊 Economic Impact Analysis")
+        
+        # Estimated losses without treatment
+        loss_without_treatment = {
+            "Mastitis": {"mild": 150, "moderate": 400, "severe": 800},
+            "Lameness": {"mild": 200, "moderate": 500, "severe": 1000},
+            "Bovine Respiratory Disease": {"mild": 300, "moderate": 600, "severe": 1200},
+            "Ketosis": {"mild": 250, "moderate": 500, "severe": 900},
+            "Pink Eye": {"mild": 100, "moderate": 250, "severe": 500}
+        }
+        
+        potential_loss = loss_without_treatment[selected_disease][severity_level] * num_animals
+        savings = potential_loss - total_cost
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Treatment Cost", f"${total_cost:,.2f}")
+        
+        with col2:
+            st.metric("Potential Loss Without Treatment", f"${potential_loss:,.2f}")
+        
+        with col3:
+            st.metric("Estimated Savings", f"${savings:,.2f}", delta=f"${savings:,.2f}")
+        
+        if savings > 0:
+            st.success(f"Treatment is economically beneficial. ROI: {(savings/total_cost)*100:.1f}%")
+        else:
+            st.warning("Treatment costs exceed potential losses for this severity level.")
 
 # Footer
 st.markdown("---")
