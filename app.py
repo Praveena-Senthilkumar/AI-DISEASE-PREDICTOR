@@ -680,6 +680,147 @@ elif page == "Treatment Calculator":
         else:
             st.warning("Treatment costs exceed potential losses for this severity level.")
 
+elif page == "Health Records":
+    st.header("📋 Health Records Management")
+    
+    # Tabs for different views
+    tab1, tab2, tab3 = st.tabs(["View Records", "Search Records", "Statistics"])
+    
+    with tab1:
+        st.subheader("Recent Health Records")
+        
+        # Filter options
+        col1, col2 = st.columns(2)
+        with col1:
+            cow_filter = st.text_input("Filter by Cow ID (optional)")
+        with col2:
+            limit = st.slider("Number of records to show", 10, 100, 50)
+        
+        # Get records from database
+        records = db_manager.get_health_records(cow_id=cow_filter if cow_filter else None, limit=limit)
+        
+        if records:
+            # Display records in a table
+            df = pd.DataFrame(records)
+            
+            # Format the dataframe for better display
+            display_df = df[['cow_id', 'diagnosis_date', 'disease_name', 'severity', 'total_cost', 'veterinarian']].copy()
+            display_df.columns = ['Cow ID', 'Date', 'Disease', 'Severity', 'Cost (₹)', 'Veterinarian']
+            
+            # Format date and cost columns
+            display_df['Date'] = pd.to_datetime(display_df['Date']).dt.strftime('%Y-%m-%d')
+            display_df['Cost (₹)'] = display_df['Cost (₹)'].fillna(0).apply(lambda x: f"₹{x:,.2f}" if x > 0 else "-")
+            
+            st.dataframe(display_df, use_container_width=True)
+            
+            # Detailed view of selected record
+            st.subheader("Detailed Record View")
+            selected_cow = st.selectbox("Select Cow ID for detailed view", 
+                                      options=[""] + list(df['cow_id'].unique()))
+            
+            if selected_cow:
+                cow_records = df[df['cow_id'] == selected_cow].sort_values('diagnosis_date', ascending=False)
+                
+                for _, record in cow_records.iterrows():
+                    with st.expander(f"{record['disease_name']} - {record['diagnosis_date'].strftime('%Y-%m-%d')}"):
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.markdown(f"**Disease:** {record['disease_name']}")
+                            st.markdown(f"**Severity:** {record['severity']}")
+                            st.markdown(f"**Date:** {record['diagnosis_date'].strftime('%Y-%m-%d %H:%M')}")
+                            if record['confidence_score']:
+                                st.markdown(f"**Confidence:** {record['confidence_score']:.1%}")
+                        
+                        with col2:
+                            st.markdown(f"**Total Cost:** ₹{record['total_cost']:,.2f}" if record['total_cost'] else "Cost: Not specified")
+                            st.markdown(f"**Veterinarian:** {record['veterinarian'] or 'Not specified'}")
+                            if record['symptoms']:
+                                st.markdown(f"**Symptoms:** {record['symptoms']}")
+                        
+                        if record['treatment_applied']:
+                            st.markdown(f"**Treatment Applied:** {record['treatment_applied']}")
+                        
+                        if record['notes']:
+                            st.markdown(f"**Notes:** {record['notes']}")
+        else:
+            st.info("No health records found. Start by adding records through the Health Analytics page or by saving diagnoses from the Diagnosis page.")
+    
+    with tab2:
+        st.subheader("Search Health Records")
+        
+        search_term = st.text_input("Search by disease, cow ID, or notes:")
+        
+        if search_term:
+            search_results = db_manager.search_records(search_term)
+            
+            if search_results:
+                st.success(f"Found {len(search_results)} matching records")
+                
+                search_df = pd.DataFrame(search_results)
+                display_search = search_df[['cow_id', 'diagnosis_date', 'disease_name', 'severity', 'total_cost']].copy()
+                display_search.columns = ['Cow ID', 'Date', 'Disease', 'Severity', 'Cost (₹)']
+                display_search['Date'] = pd.to_datetime(display_search['Date']).dt.strftime('%Y-%m-%d')
+                display_search['Cost (₹)'] = display_search['Cost (₹)'].fillna(0).apply(lambda x: f"₹{x:,.2f}" if x > 0 else "-")
+                
+                st.dataframe(display_search, use_container_width=True)
+            else:
+                st.info("No records found matching your search criteria.")
+    
+    with tab3:
+        st.subheader("Health Statistics")
+        
+        stats = db_manager.get_disease_statistics()
+        
+        if stats['total_records'] > 0:
+            # Key metrics
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total Records", stats['total_records'])
+            
+            with col2:
+                most_common = max(stats['disease_counts'].items(), key=lambda x: x[1]) if stats['disease_counts'] else ("None", 0)
+                st.metric("Most Common Disease", most_common[0], f"{most_common[1]} cases")
+            
+            with col3:
+                st.metric("Average Treatment Cost", f"₹{stats['average_cost']:,.2f}")
+            
+            # Disease distribution
+            if stats['disease_counts']:
+                st.subheader("Disease Distribution")
+                disease_df = pd.DataFrame(list(stats['disease_counts'].items()), 
+                                        columns=['Disease', 'Count'])
+                st.bar_chart(disease_df.set_index('Disease'))
+            
+            # Recent trends
+            st.subheader("Recent Activity")
+            recent_records = db_manager.get_health_records(limit=10)
+            if recent_records:
+                recent_df = pd.DataFrame(recent_records)
+                st.write("Last 10 diagnoses:")
+                trend_display = recent_df[['diagnosis_date', 'cow_id', 'disease_name', 'severity']].copy()
+                trend_display.columns = ['Date', 'Cow ID', 'Disease', 'Severity']
+                trend_display['Date'] = pd.to_datetime(trend_display['Date']).dt.strftime('%Y-%m-%d %H:%M')
+                st.dataframe(trend_display, use_container_width=True)
+        else:
+            st.info("No statistics available. Add some health records to see analytics.")
+            
+            # Sample data notice
+            st.subheader("Getting Started")
+            st.markdown("""
+            To start using the health records system:
+            1. Upload cow images in the **Diagnosis** page and save the results
+            2. Manually add records in the **Health Analytics** page
+            3. View and analyze your data here in **Health Records**
+            
+            The system will automatically track:
+            - Disease patterns in your herd
+            - Treatment costs and effectiveness
+            - Historical health trends
+            - Veterinarian contact information
+            """)
+
 # Footer
 st.markdown("---")
 st.markdown("**Disclaimer:** This application is for educational and preliminary assessment purposes only. Always consult with a qualified veterinarian for proper diagnosis and treatment of your livestock.")
