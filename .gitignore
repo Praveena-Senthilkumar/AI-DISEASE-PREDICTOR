@@ -1,0 +1,33 @@
+# Ignore Python virtual environments
+venv/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VS Code settings
+.vscode/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Streamlit config
+.streamlit/config.toml
+
+# SQLite database files
+*.db
+
+# Lock files
+*.lock
+
+# Environment & model files
+.env
+*.pkl
+*.h5
+*.pt
+*.onnx

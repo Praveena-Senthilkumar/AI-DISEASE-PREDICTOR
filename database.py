@@ -68,11 +68,7 @@ class DatabaseManager:
     def connect(self):
         """Initialize database connection"""
         try:
-            database_url = os.getenv('DATABASE_URL')
-            if not database_url:
-                st.error("Database URL not found. Please check your environment variables.")
-                return False
-            
+            database_url = os.getenv('DATABASE_URL', 'sqlite:///pashu_raksha.db')
             self.engine = create_engine(database_url)
             self.Session = sessionmaker(bind=self.engine)
             

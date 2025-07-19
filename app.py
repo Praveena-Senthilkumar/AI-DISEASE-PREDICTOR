@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from PIL import Image
+import time
 import io
 import os
 from datetime import datetime, date
@@ -9,6 +10,103 @@ from treatment_database import TreatmentDatabase
 from image_processor import ImageProcessor
 from ml_model import CowDiseaseModel
 from database import get_database_manager
+from user_database import init_db, create_user, verify_user
+init_db()  # Initializes DB when app starts
+
+import streamlit as st
+
+# Set page configuration
+st.set_page_config(page_title="Pashu Raksha", page_icon="🐄", layout="centered")
+
+# Set light grey background for entire login page
+st.markdown("""
+    <style>
+    body {
+        background-color: #f2f2f2;
+    }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+# Initialize session state
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+# Dummy credentials
+USER_CREDENTIALS = {
+    "admin": "pass123",
+    "vet": "pashu2025"
+}
+
+def login():
+    st.markdown("""
+    <div style='text-align: center; padding-bottom: 20px;'>
+        <h2 style='margin-bottom: 0;'>🐄 "Healthy cattle, happy homes"</h2>
+        <h3 style='margin-top: 5px;'>Welcome to <strong>Pashu Raksha</strong></h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    username = st.text_input("Email / Username")
+    password = st.text_input("Password", type="password")
+    login_btn = st.button("LOG IN")
+
+    if login_btn:
+        with st.spinner("Logging in..."):
+            time.sleep(1.5)  # Simulate server-side delay (optional)
+            if verify_user(username, password):
+                st.session_state.logged_in = True
+                st.rerun()
+            else:
+                st.error("Invalid username or password")
+
+
+    st.markdown('<small>Forgot password</small>', unsafe_allow_html=True)
+    st.markdown('<small>Didn’t have an account?</small>', unsafe_allow_html=True)
+
+    # Initialize temporary user "database" in session_state
+    if "user_db" not in st.session_state:
+        st.session_state.user_db = {
+            "admin": "pass123",
+            "vet": "pashu2025"
+        }
+
+    if st.button("Sign up"):
+        st.session_state.show_signup = True
+        st.rerun()
+
+    # Signup Form Logic
+    if st.session_state.get("show_signup", False):
+        st.markdown("---")
+        st.subheader("🔐 Create a New Account")
+        new_user = st.text_input("Choose a username")
+        new_pass = st.text_input("Choose a password", type="password")
+        confirm_pass = st.text_input("Confirm password", type="password")
+        create_btn = st.button("Create Account")
+
+        if create_btn:
+            if not new_user or not new_pass or not confirm_pass:
+                st.warning("⚠️ All fields are required!")
+            elif new_pass != confirm_pass:
+                st.warning("❌ Passwords do not match.")
+            elif create_user(new_user, new_pass):
+                st.success("✅ Account created successfully! You can now log in.")
+                st.session_state.show_signup = False
+            else:
+                st.error("🚫 Username already exists!")
+
+
+    st.markdown("""
+        <div style='text-align:center; padding-top: 20px;'>
+            <img src="https://t4.ftcdn.net/jpg/05/92/17/11/360_F_592171170_c4As1Gfbpfl1r1KjnJm4oiyf1xQqCcjz.jpg" width="200">
+        </div>
+    """, unsafe_allow_html=True)
+
+# Login screen
+if not st.session_state.logged_in:
+    login()
+    st.stop()
 
 # Initialize databases and models
 @st.cache_resource
@@ -20,13 +118,7 @@ def load_resources():
     db_manager = get_database_manager()
     return disease_db, treatment_db, image_processor, ml_model, db_manager
 
-# Page configuration
-st.set_page_config(
-    page_title="Cow Disease Diagnosis System",
-    page_icon="🐄",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+
 
 # Load resources
 try:
@@ -36,11 +128,11 @@ except Exception as e:
     st.stop()
 
 # Main title
-st.title("🐄 Cow Disease Diagnosis System")
+st.title("🐄 Pashu Raksha - Cow Disease Diagnosis")
 st.markdown("Upload a photo of your cow to get AI-powered disease diagnosis and treatment recommendations")
 
 # Sidebar for navigation
-st.sidebar.title("Navigation")
+st.sidebar.title("Health Hub")
 page = st.sidebar.selectbox("Choose a page", [
     "Diagnosis", 
     "Disease Database", 
@@ -55,172 +147,94 @@ page = st.sidebar.selectbox("Choose a page", [
 
 if page == "Diagnosis":
     st.header("Upload Cow Image for Diagnosis")
-    
-    # Upload options
+
+    # Upload selection
     upload_option = st.radio("Upload Method:", ["Single Image", "Multiple Images"])
-    
+
     if upload_option == "Single Image":
-        # Single file upload
-        uploaded_file = st.file_uploader(
-            "Choose an image file",
-            type=['png', 'jpg', 'jpeg'],
-            help="Upload a clear photo of the cow showing any visible symptoms"
-        )
+        uploaded_file = st.file_uploader("Choose an image file", type=["png", "jpg", "jpeg"])
         uploaded_files = [uploaded_file] if uploaded_file else []
     else:
-        # Multiple file upload
-        uploaded_files = st.file_uploader(
-            "Choose multiple image files",
-            type=['png', 'jpg', 'jpeg'],
-            accept_multiple_files=True,
-            help="Upload multiple photos for comprehensive analysis"
-        )
-    
+        uploaded_files = st.file_uploader("Choose multiple image files", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+
     if uploaded_files and any(uploaded_files):
-        # Filter out None values
         valid_files = [f for f in uploaded_files if f is not None]
-        
-        if valid_files:
-            st.success(f"Processing {len(valid_files)} image(s)...")
-            
-            # Process each image
-            all_predictions = []
-            
-            for idx, uploaded_file in enumerate(valid_files):
-                try:
-                    # Display uploaded image
-                    image = Image.open(uploaded_file)
-                    
-                    st.markdown(f"### Image {idx + 1}: {uploaded_file.name}")
-                    
-                    col1, col2 = st.columns([1, 1])
-                    
-                    with col1:
-                        st.image(image, caption=f"Uploaded Image {idx + 1}", use_container_width=True)
-                        
-                        # Image quality assessment
-                        quality_info = image_processor.detect_image_quality(image)
-                        st.markdown("**Image Quality Assessment:**")
-                        if quality_info.get('overall_quality') == 'good':
-                            st.success("✅ Good image quality")
-                        elif quality_info.get('overall_quality') == 'fair':
-                            st.warning("⚠️ Fair image quality")
-                            if quality_info.get('issues'):
-                                st.write(f"Issues: {', '.join(quality_info['issues'])}")
-                        else:
-                            st.error("❌ Poor image quality")
-                            if quality_info.get('issues'):
-                                st.write(f"Issues: {', '.join(quality_info['issues'])}")
-                    
-                    with col2:
-                        st.subheader(f"Analysis for Image {idx + 1}")
-                        
-                        # Process image
-                        with st.spinner("Processing image..."):
-                            processed_image = image_processor.preprocess_image(image)
-                            
-                        if processed_image is not None:
-                            st.success("✅ Image processed successfully")
-                            
-                            # Extract features for display
-                            features = image_processor.extract_features(image)
-                            with st.expander("📊 Image Features"):
-                                st.write(f"Brightness: {features.get('brightness', 0):.2f}")
-                                st.write(f"Contrast: {features.get('contrast', 0):.2f}")
-                                st.write(f"Size: {features.get('size', 'Unknown')}")
-                            
-                            # Analyze with ML model
-                            with st.spinner("Analyzing for diseases..."):
-                                predictions = ml_model.predict(processed_image)
-                            
-                            if predictions:
-                                all_predictions.extend(predictions)
-                                st.subheader(f"🔍 Diagnosis Results for Image {idx + 1}")
-                                
-                                for i, (disease_name, confidence) in enumerate(predictions[:3]):
-                                    with st.expander(f"{disease_name} (Confidence: {confidence:.1%})", expanded=(i==0)):
-                                        disease_info = disease_db.get_disease_info(disease_name)
-                                        treatment_info = treatment_db.get_treatment_info(disease_name)
-                                        
-                                        if disease_info:
-                                            st.markdown(f"**Description:** {disease_info['description']}")
-                                            st.markdown(f"**Symptoms:** {disease_info['symptoms']}")
-                                            st.markdown(f"**Causes:** {disease_info['causes']}")
-                                            
-                                            if treatment_info:
-                                                st.markdown("### 🏥 Treatment Recommendations")
-                                                st.markdown(f"**Immediate Actions:** {treatment_info['immediate_actions']}")
-                                                st.markdown(f"**Medications:** {treatment_info['medications']}")
-                                                st.markdown(f"**Dosage:** {treatment_info['dosage']}")
-                                                st.markdown(f"**Duration:** {treatment_info['duration']}")
-                                                st.markdown(f"**Prevention:** {treatment_info['prevention']}")
-                                                
-                                                # Warning for veterinary consultation
-                                                st.warning("⚠️ Always consult with a qualified veterinarian before administering any treatment.")
-                                        else:
-                                            st.error(f"Disease information not found for {disease_name}")
+        all_predictions = []
+
+        for idx, uploaded_file in enumerate(valid_files):
+            try:
+                image = Image.open(uploaded_file)
+                st.image(image, caption=f"Uploaded Image {idx + 1}", use_container_width=True)
+
+                quality = image_processor.detect_image_quality(image)
+                st.markdown("### 📷 Image Quality")
+                st.info(f"Overall: {quality['overall_quality']}")
+                if quality.get("issues"):
+                    st.warning(f"Issues: {', '.join(quality['issues'])}")
+
+                st.markdown(f"### 🧪 Analyzing Image {idx + 1}")
+                processed = image_processor.preprocess_image(image)
+                if processed is not None:
+                    predictions = ml_model.predict(image)
+
+                    if predictions:
+                        all_predictions.extend(predictions)
+                        for i, (disease_name, confidence) in enumerate(predictions[:3]):
+                            st.markdown(f"### 🐮 Predicted Disease: **{disease_name}** (Confidence: {confidence:.1%})")
+
+                            disease_info = disease_db.get_disease_info(disease_name)
+                            treatment_info = treatment_db.get_treatment_info(disease_name)
+
+                            if disease_info:
+                                st.markdown("#### 🧬 Disease Information")
+                                st.markdown(f"- **Description:** {disease_info['description']}")
+                                st.markdown(f"- **Symptoms:** {disease_info['symptoms']}")
+                                st.markdown(f"- **Causes:** {disease_info['causes']}")
+
+                            if treatment_info:
+                                st.markdown("#### 💊 Treatment Information")
+                                st.markdown(f"- **Immediate Actions:** {treatment_info['immediate_actions']}")
+                                st.markdown(f"- **Medications:** {treatment_info['medications']}")
+                                st.markdown(f"- **Dosage:** {treatment_info['dosage']}")
+                                st.markdown(f"- **Duration:** {treatment_info['duration']}")
+                                st.markdown(f"- **Prevention:** {treatment_info['prevention']}")
+                                st.info("⚠️ Always consult a veterinarian before applying treatment.")
                             else:
-                                st.warning(f"No diseases detected in image {idx + 1}.")
-                        else:
-                            st.error(f"Failed to process image {idx + 1}. Please try with a different image.")
-                    
-                    st.markdown("---")
-                            
-                except Exception as e:
-                    st.error(f"Error processing image {idx + 1}: {str(e)}")
-                    continue
-            
-            # Aggregate results for multiple images
-            if len(valid_files) > 1 and all_predictions:
-                st.header("📋 Comprehensive Analysis Summary")
-                
-                # Aggregate predictions by counting occurrences
-                disease_counts = {}
-                confidence_sums = {}
-                
-                for disease, confidence in all_predictions:
-                    if disease in disease_counts:
-                        disease_counts[disease] += 1
-                        confidence_sums[disease] += confidence
+                                st.warning("🚫 No treatment info available.")
+                            st.markdown("---")
                     else:
-                        disease_counts[disease] = 1
-                        confidence_sums[disease] = confidence
-                
-                # Calculate average confidence and sort by frequency
-                aggregated_results = []
-                for disease in disease_counts:
-                    avg_confidence = confidence_sums[disease] / disease_counts[disease]
-                    frequency = disease_counts[disease]
-                    aggregated_results.append((disease, avg_confidence, frequency))
-                
-                aggregated_results.sort(key=lambda x: (x[2], x[1]), reverse=True)
-                
-                st.subheader("🎯 Most Likely Diagnoses Across All Images")
-                
-                for disease, avg_conf, freq in aggregated_results[:5]:
-                    with st.expander(f"{disease} (Detected in {freq}/{len(valid_files)} images, Avg Confidence: {avg_conf:.1%})"):
-                        disease_info = disease_db.get_disease_info(disease)
-                        treatment_info = treatment_db.get_treatment_info(disease)
-                        
-                        if disease_info:
-                            col1, col2 = st.columns([1, 1])
-                            
-                            with col1:
-                                st.markdown("### Disease Information")
-                                st.markdown(f"**Description:** {disease_info['description']}")
-                                st.markdown(f"**Symptoms:** {disease_info['symptoms']}")
-                                st.markdown(f"**Severity:** {disease_info.get('severity', 'Unknown')}")
-                            
-                            with col2:
-                                if treatment_info:
-                                    st.markdown("### Treatment Protocol")
-                                    st.markdown(f"**Immediate Actions:** {treatment_info['immediate_actions']}")
-                                    st.markdown(f"**Medications:** {treatment_info['medications']}")
-                                    st.markdown(f"**Prevention:** {treatment_info['prevention']}")
-                                    
-                st.info(f"Analysis based on {len(valid_files)} images. Multiple image analysis provides more reliable diagnosis.")
-        else:
-            st.info("Please upload at least one valid image file.")
+                        st.warning("No disease detected.")
+                else:
+                    st.error("Could not process image.")
+            except Exception as e:
+                st.error(f"Failed to process: {str(e)}")
+
+        # Show summary for multiple images
+        if len(valid_files) > 1 and all_predictions:
+            st.header("📊 Summary Across All Images")
+            count = {}
+            confidence = {}
+
+            for d, c in all_predictions:
+                count[d] = count.get(d, 0) + 1
+                confidence[d] = confidence.get(d, 0) + c
+
+            for d in sorted(count, key=lambda x: (count[x], confidence[x]), reverse=True):
+                avg_conf = confidence[d] / count[d]
+                st.markdown(f"### 🔍 {d} (Detected in {count[d]} image(s), Avg Confidence: {avg_conf:.1%})")
+
+                info = disease_db.get_disease_info(d)
+                treat = treatment_db.get_treatment_info(d)
+
+                if info:
+                    st.markdown(f"- **Description:** {info['description']}")
+                    st.markdown(f"- **Symptoms:** {info['symptoms']}")
+
+                if treat:
+                    st.markdown("#### 💊 Treatment Summary")
+                    st.markdown(f"- **Medications:** {treat['medications']}")
+                    st.markdown(f"- **Prevention:** {treat['prevention']}")
+
 
 elif page == "Disease Database":
     st.header("📚 Cow Disease Database")
@@ -336,63 +350,85 @@ elif page == "Prevention Guide":
 elif page == "Emergency Protocol":
     st.header("🚨 Emergency Protocol Guide")
     
-    st.warning("⚠️ This guide is for immediate reference only. Always contact a veterinarian for emergencies.")
+    st.warning("⚠️ This emergency guide is for **immediate first-response reference only**. Always consult a licensed veterinarian as soon as possible.")
+
+    st.markdown("""
+    This guide outlines how to identify and respond quickly to life-threatening or urgent conditions in cattle.
+    """)
     
-    # Emergency situations
     emergencies = {
         "Severe Bloat": {
-            "symptoms": "Severe abdominal distension, difficulty breathing, collapse",
-            "immediate_actions": [
-                "Keep animal standing and moving",
-                "Insert stomach tube if trained",
-                "Contact veterinarian immediately",
-                "Do NOT give oral medications",
-                "Monitor breathing closely"
+            "symptoms": [
+                "⚠️ Severe abdominal distension (left side especially)",
+                "😰 Difficulty breathing or groaning",
+                "💥 Sudden collapse or restlessness"
             ],
-            "urgency": "CRITICAL - Act within minutes"
+            "immediate_actions": [
+                "🚶 Keep animal **standing and walking** to release pressure",
+                "🧪 Insert **stomach tube** if trained (to relieve gas buildup)",
+                "📞 **Call veterinarian immediately** – life-threatening within minutes",
+                "❌ **Do NOT** administer oral remedies unless directed",
+                "👀 Monitor **breathing** and **abdominal girth** closely"
+            ],
+            "urgency": "🔴 CRITICAL – Act within **minutes**"
         },
         "Milk Fever Emergency": {
-            "symptoms": "Unable to stand, muscle tremors, cold extremities",
-            "immediate_actions": [
-                "Keep cow calm and warm",
-                "Contact veterinarian for IV calcium",
-                "Do not attempt to force standing",
-                "Provide soft bedding",
-                "Monitor for complications"
+            "symptoms": [
+                "🧊 Cold ears and limbs",
+                "💤 Cow lying down and unable to stand",
+                "💥 Muscle tremors or collapse after calving"
             ],
-            "urgency": "URGENT - Act within 1-2 hours"
+            "immediate_actions": [
+                "🛏️ Provide **soft bedding** and keep animal **calm**",
+                "📞 Contact **veterinarian for IV calcium** treatment",
+                "🛑 Do **not** try to lift or force the cow to stand",
+                "🌡️ Monitor **vital signs** if possible",
+                "🧣 Keep cow **warm and protected** from drafts"
+            ],
+            "urgency": "🟠 URGENT – Act within **1–2 hours**"
         },
         "Severe Respiratory Distress": {
-            "symptoms": "Open-mouth breathing, blue gums, extreme difficulty breathing",
-            "immediate_actions": [
-                "Move to well-ventilated area",
-                "Remove any obstructions from airway",
-                "Contact veterinarian immediately",
-                "Monitor temperature",
-                "Keep animal calm"
+            "symptoms": [
+                "😤 Open-mouth breathing or gasping",
+                "🔵 Blue or purple gums (cyanosis)",
+                "🫁 Labored or extremely rapid breathing"
             ],
-            "urgency": "CRITICAL - Act immediately"
+            "immediate_actions": [
+                "🌬️ Move animal to a **well-ventilated**, quiet area",
+                "🔍 Remove any **visible obstructions** in nose or mouth",
+                "📞 Call **veterinarian immediately**",
+                "🧊 Apply **cool compresses** if fever is high",
+                "🧘 Keep animal **calm** to reduce oxygen demand"
+            ],
+            "urgency": "🔴 CRITICAL – Act **immediately**"
         },
         "Prolapsed Uterus": {
-            "symptoms": "Uterus visible outside body after calving",
-            "immediate_actions": [
-                "Cover with clean, moist cloth",
-                "Prevent further contamination",
-                "Contact veterinarian immediately",
-                "Do NOT attempt to replace yourself",
-                "Keep cow standing if possible"
+            "symptoms": [
+                "👀 Uterus visible **outside** the cow's body post-calving",
+                "🩸 Possible bleeding or trauma",
+                "😟 Cow may appear weak or distressed"
             ],
-            "urgency": "URGENT - Act within 1 hour"
+            "immediate_actions": [
+                "🧼 Cover prolapsed tissue with **clean, moist cloth**",
+                "🚫 Do **not attempt to replace** the uterus yourself",
+                "📞 Contact **veterinarian immediately**",
+                "🚷 Prevent contamination with dirt or manure",
+                "🧍 Encourage the cow to **remain standing** if possible"
+            ],
+            "urgency": "🟠 URGENT – Act within **1 hour**"
         }
     }
-    
+
     for emergency, details in emergencies.items():
         with st.expander(f"🚨 {emergency}"):
-            st.error(f"**Urgency Level:** {details['urgency']}")
-            st.markdown(f"**Symptoms:** {details['symptoms']}")
-            st.markdown("**Immediate Actions:**")
-            for action in details['immediate_actions']:
-                st.markdown(f"1. {action}")
+            st.subheader(details["urgency"])
+            st.markdown("### 🧿 Symptoms to Look For")
+            for symptom in details["symptoms"]:
+                st.markdown(f"- {symptom}")
+            st.markdown("### 🛠️ Immediate First-Aid Actions")
+            for i, action in enumerate(details["immediate_actions"], start=1):
+                st.markdown(f"{i}. {action}")
+            st.markdown("---")
 
 elif page == "Health Analytics":
     st.header("📊 Health Analytics Dashboard")
