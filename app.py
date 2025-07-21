@@ -16,7 +16,7 @@ init_db()  # Initializes DB when app starts
 import streamlit as st
 
 # Set page configuration
-st.set_page_config(page_title="Pashu Raksha", page_icon="🐄", layout="centered")
+st.set_page_config(page_title="Cattle diesease analyser", page_icon="🐄", layout="centered")
 
 # Set light grey background for entire login page
 st.markdown("""
