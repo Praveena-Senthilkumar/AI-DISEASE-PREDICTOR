@@ -22,7 +22,7 @@ def create_user(username, password):
         conn.commit()
         return True
     except sqlite3.IntegrityError:
-        return False  # Username already exists
+        return False
     finally:
         conn.close()
 
@@ -34,4 +34,5 @@ def verify_user(username, password):
     conn.close()
     if result:
         return bcrypt.checkpw(password.encode(), result[0])
+
     return False
