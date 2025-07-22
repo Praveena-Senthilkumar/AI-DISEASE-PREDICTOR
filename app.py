@@ -4,6 +4,16 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+from modules import (
+    diagnosis,
+    disease_database,
+    treatment_calculator,
+    emergency_protocol,
+    prevention_guide,
+    find_vet,
+    nutrition_advisor
+)
+
 def send_feedback_email(disease, issue):
     sender_email = st.secrets["email"]["sender"]
     receiver_email = st.secrets["email"]["receiver"]
@@ -38,21 +48,10 @@ Pashu Raksha App
         print("Email error:", e)
         return False
 
-from modules import (
-    diagnosis,
-    disease_database,
-    search_diseases,
-    treatment_calculator,
-    emergency_protocol,
-    prevention_guide,
-    find_vet
-)
-
 def back_to_home_button(texts):
     if st.button("🔙 " + texts["home"]):
         st.session_state.page = texts["home"]
         st.rerun()
-
 
 LANGUAGES = {
     "English": {
@@ -84,7 +83,8 @@ LANGUAGES = {
         "calculator": "Treatment Calculator",
         "emergency": "Emergency Protocols",
         "prevention": "Prevention",
-        "find_vet": "Find a Vet"
+        "find_vet": "Find a Vet",
+        "nutrition": "Nutrition Advisor",
     },
     "தமிழ்": {
         "login_title": "🐄 பசு ரக்ஷா உள்நுழைவு",
@@ -115,7 +115,8 @@ LANGUAGES = {
         "calculator": "சிகிச்சை கணிப்பான்",
         "emergency": "அவசர நெறிமுறைகள்",
         "prevention": "முன்கூட்டிய தடுப்பு",
-        "find_vet": "வெட்னரியை காண்க"
+        "find_vet": "வெட்னரியை காண்க",
+        "nutrition": "மீன்ஊட்டம் ஆலோசகர்",
     },
     "हिन्दी": {
         "login_title": "🐄 पशु रक्षा लॉगिन",
@@ -146,11 +147,11 @@ LANGUAGES = {
         "calculator": "उपचार कैलकुलेटर",
         "emergency": "आपातकालीन प्रोटोकॉल",
         "prevention": "रोकथाम",
-        "find_vet": "पशु चिकित्सक खोजें"
+        "find_vet": "पशु चिकित्सक खोजें",
+        "nutrition": "पोषण सलाहकार",
     }
 }
 
-# ---------------- Session Init ----------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
@@ -162,7 +163,6 @@ if "page" not in st.session_state:
 if "signup_mode" not in st.session_state:
     st.session_state.signup_mode = False
 
-# ---------------- Shared Resource Loader ----------------
 @st.cache_resource
 def load_resources():
     from disease_database import DiseaseDatabase
@@ -171,7 +171,6 @@ def load_resources():
     from ml_model import CowDiseaseModel
     return DiseaseDatabase(), TreatmentDatabase(), ImageProcessor(), CowDiseaseModel()
 
-# ---------------- Login & Signup ----------------
 def show_login(texts):
     st.set_page_config(page_title=texts["login_title"], layout="centered")
     st.title(texts["login_title"])
@@ -208,7 +207,6 @@ def show_signup(texts):
         st.session_state.signup_mode = False
         st.rerun()
 
-# ---------------- Dashboard ----------------
 def show_dashboard(texts):
     st.set_page_config(page_title="Pashu Raksha", layout="wide")
 
@@ -219,10 +217,8 @@ def show_dashboard(texts):
         background-color: #F8FAFC;
     }
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-
-    # Sidebar
     with st.sidebar:
         st.markdown(f"## 👤 {texts['account']}")
         st.markdown(f"{texts['logged_in_as']}: **{st.session_state.username}**")
@@ -255,7 +251,6 @@ def show_dashboard(texts):
             </style>
         """, unsafe_allow_html=True)
 
-
     texts = LANGUAGES[st.session_state.language]
     st.markdown(f"### 👋 {texts['welcome']}, **{st.session_state.username}**")
 
@@ -264,81 +259,49 @@ def show_dashboard(texts):
     if st.session_state.page == texts["home"]:
         st.markdown("### ✨ Choose a feature to continue:")
 
-        st.markdown(f"""
-            <style>
-            .grid {{
-                display: flex;
-                flex-wrap: wrap;
-                gap: 20px;
-                justify-content: center;
-                padding: 10px 0;
-            }}
-            .card {{
-                background-color: #ffffff;
-                border-radius: 15px;
-                width: 250px;
-                height: 140px;
-                padding: 20px;
-                box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
-                transition: all 0.3s ease;
-                text-align: center;
-                font-size: 1.1rem;
-            }}
-            .card:hover {{
-                transform: scale(1.05);
-                background-color: #f0f8ff;
-                cursor: pointer;
-            }}
-            @media (max-width: 768px) {{
-                .grid {{ flex-direction: column; align-items: center; }}
-            }}
-            </style>
-        """, unsafe_allow_html=True)
-
         features = [
             (texts["diagnosis"], "🧪", "Diagnosis"),
             (texts["disease_db"], "📚", "Disease Database"),
-            (texts["search"], "🔍", "Search Diseases"),
-            (texts["calculator"], "🧮", "Treatment Calculator"),
+            (texts["calculator"], "🧲", "Treatment Calculator"),
             (texts["emergency"], "🚨", "Emergency Protocols"),
             (texts["prevention"], "🛡️", "Prevention"),
-            (texts["find_vet"], "🩺", "Find a Vet"),
+            (texts["find_vet"], "🧰", "Find a Vet"),
+            (texts["nutrition"], "🥗", "Nutrition Advisor")
         ]
 
-        st.markdown('<div class="grid">', unsafe_allow_html=True)
         for label, emoji, page_key in features:
             if st.button(f"{emoji} {label}", key=label):
                 st.session_state.page = page_key
                 st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
     elif st.session_state.page == "Diagnosis":
         back_to_home_button(texts)
         diagnosis.run(disease_db, treatment_db, image_processor, ml_model)
-       
+
     elif st.session_state.page == "Disease Database":
         back_to_home_button(texts)
         disease_database.run(disease_db, treatment_db)
-        
-        
+
     elif st.session_state.page == "Treatment Calculator":
         back_to_home_button(texts)
         treatment_calculator.run(disease_db, treatment_db)
-       
+
     elif st.session_state.page == "Emergency Protocols":
         back_to_home_button(texts)
         emergency_protocol.run()
-        
+
     elif st.session_state.page == "Prevention":
         back_to_home_button(texts)
         prevention_guide.run(disease_db, treatment_db)
-        
+
     elif st.session_state.page == "Find a Vet":
         back_to_home_button(texts)
         find_vet.run()
-        
 
-# ---------------- Main Entry ----------------
+    elif st.session_state.page == "Nutrition Advisor":
+        back_to_home_button(texts)
+        nutrition_advisor.run()
+
 if __name__ == "__main__":
     init_db()
     texts = LANGUAGES[st.session_state.language]
