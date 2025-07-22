@@ -320,9 +320,6 @@ def show_dashboard(texts):
         back_to_home_button(texts)
         disease_database.run(disease_db, treatment_db)
         
-    elif st.session_state.page == "Search Diseases":
-        back_to_home_button(texts)
-        search_diseases.run(disease_db, treatment_db)
         
     elif st.session_state.page == "Treatment Calculator":
         back_to_home_button(texts)
