@@ -1,5 +1,42 @@
 import streamlit as st
 from user_database import init_db, create_user, verify_user
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def send_feedback_email(disease, issue):
+    sender_email = st.secrets["email"]["sender"]
+    receiver_email = st.secrets["email"]["receiver"]
+    app_password = st.secrets["email"]["app_password"]
+
+    subject = "🩺 Feedback on Disease Info - Pashu Raksha"
+    body = f"""Hello Admin,
+
+A user has submitted feedback for the disease: {disease}
+
+Issue or Suggestion:
+{issue}
+
+Please review and take necessary action.
+
+Thank you,
+Pashu Raksha App
+"""
+
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender_email, app_password)
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+        return True
+    except Exception as e:
+        print("Email error:", e)
+        return False
 
 from modules import (
     diagnosis,
@@ -293,7 +330,7 @@ def show_dashboard(texts):
        
     elif st.session_state.page == "Emergency Protocols":
         back_to_home_button(texts)
-        emergency_protocol.run(disease_db, treatment_db)
+        emergency_protocol.run()
         
     elif st.session_state.page == "Prevention":
         back_to_home_button(texts)
